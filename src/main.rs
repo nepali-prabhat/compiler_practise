@@ -2,10 +2,6 @@ mod straight_line_prog;
 
 use straight_line_prog::*;
 
-fn interp_stm(stm: &AStm){
-    println!("stm: {:?}", stm);
-}
-
 fn main() {
     let prog = AStm::Compound(
         &AStm::Assign("a", &AExp::Op(&AExp::Num(5), ABinop::Plus, &AExp::Num(3))),
@@ -23,5 +19,11 @@ fn main() {
             &AStm::Print(&AExpList::Last(&AExp::Id("b"))),
         ),
     );
-    interp_stm(&prog);
+    let (_, context) = prog.interp(None);
+    println!("response: {context:?}",);
+    if let Some(context) = context{
+        println!("a: {:?}", context.find("a"));
+        println!("b: {:?}", context.find("b"));
+        println!("c: {:?}", context.find("c"));
+    }
 }
