@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-use std::io::{stdout, Write};
 
 #[derive(Debug)]
 pub(crate) enum ABinop {
@@ -34,7 +33,14 @@ pub(crate) enum AExpList<'a> {
 }
 
 impl AExpList<'_> {
-    fn collect_values<'a, 'b>(&'a self, context: Option<Box<Context<'b>>>, collector: &mut Vec<u32>) -> Option<Box<Context>> where 'b :'a {
+    fn collect_values<'a, 'b>(
+        &'a self,
+        context: Option<Box<Context<'b>>>,
+        collector: &mut Vec<u32>,
+    ) -> Option<Box<Context>>
+    where
+        'b: 'a,
+    {
         match self {
             AExpList::Pair(exp, next_list) => {
                 let (val, context) = exp.interp(context);
@@ -78,16 +84,27 @@ impl Context<'_> {
 }
 
 pub(crate) trait Interp {
-    fn interp<'a, 'b>(&'a self, context: Option<Box<Context<'b>>>) -> (Option<u32>, Option<Box<Context>>) where 'b:'a;
+    fn interp<'a, 'b>(
+        &'a self,
+        context: Option<Box<Context<'b>>>,
+    ) -> (Option<u32>, Option<Box<Context>>)
+    where
+        'b: 'a;
 }
 
 impl Interp for AExp<'_> {
-    fn interp<'a, 'b>(&'a self, context: Option<Box<Context<'b>>>) -> (Option<u32>, Option<Box<Context>>) where 'b:'a {
+    fn interp<'a, 'b>(
+        &'a self,
+        context: Option<Box<Context<'b>>>,
+    ) -> (Option<u32>, Option<Box<Context>>)
+    where
+        'b: 'a,
+    {
         match self {
             AExp::Id(id) => {
                 let v = context.as_ref().map_or(None, |v| v.find(id));
                 (v, context)
-            },
+            }
             AExp::Num(n) => (Some(*n), context),
             AExp::Op(e1, op, e2) => {
                 let (l, context) = e1.interp(context);
@@ -99,13 +116,19 @@ impl Interp for AExp<'_> {
             AExp::Eseq(stm, exp) => {
                 let (_, context) = stm.interp(context);
                 exp.interp(context)
-            },
+            }
         }
     }
 }
 
 impl Interp for AStm<'_> {
-    fn interp<'a, 'b>(&'a self, context: Option<Box<Context<'b>>>) -> (Option<u32>, Option<Box<Context>>) where 'b:'a {
+    fn interp<'a, 'b>(
+        &'a self,
+        context: Option<Box<Context<'b>>>,
+    ) -> (Option<u32>, Option<Box<Context>>)
+    where
+        'b: 'a,
+    {
         match self {
             AStm::Compound(stm1, stm2) => {
                 let (_, context) = stm1.interp(context);
@@ -117,19 +140,22 @@ impl Interp for AStm<'_> {
                 let val = val.expect("value required to assign");
                 let context = Some(Box::new(Context {
                     value: (id, val),
-                    next: context 
+                    next: context,
                 }));
                 (None, context)
             }
             AStm::Print(exp_list) => {
                 let mut collector: Vec<u32> = Vec::new();
                 let context = exp_list.collect_values(context, &mut collector);
-                let print_str = collector.iter().map(|v| format!("{v}")).reduce(|acc, v| format!("{acc} {v}") );
+                let print_str = collector
+                    .iter()
+                    .map(|v| format!("{v}"))
+                    .reduce(|acc, v| format!("{acc} {v}"));
                 if let Some(str) = print_str {
                     println!("{str}");
                 }
                 (None, context)
-            },
+            }
         }
     }
 }
