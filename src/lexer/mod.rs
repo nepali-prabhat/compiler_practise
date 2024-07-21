@@ -129,12 +129,14 @@ impl TokenPos {
 }
 
 pub(crate) struct StringReader<'a> {
+    src: &'a str,
     cursor: Cursor<'a>,
     pos: u32,
 }
 impl StringReader<'_> {
     fn new<'a>(src: &'a str) -> StringReader<'a> {
         StringReader {
+            src,
             cursor: Cursor::new(&src),
             pos: 0,
         }
@@ -184,7 +186,7 @@ impl StringReader<'_> {
                 c => {
                     match c {
                         'a'..='z' | 'A'..='Z' => {
-                            self.cook_identifier(c)
+                            self.cook_identifier(start)
                         }
                         _ => TokenKind::UNKNOWN
                     }
@@ -203,19 +205,19 @@ impl StringReader<'_> {
         }
     }
 
-    fn cook_identifier(&mut self, c: char) -> TokenKind {
-        let mut token = c.to_string();
+    fn cook_identifier(&mut self, start: u32) -> TokenKind {
         loop {
             match self.cursor.peek_first() {
                 'a'..='z' | 'A'..='Z' | '0'..='9' => {
-                    let c = self.cursor.bump().expect("we just checked the value range");
-                    token.push(c);
-                    continue;
+                    self.cursor.bump();
                 }
                 _ => break,
             };
         }
-        match token.as_str() {
+        let end = (start + self.cursor.len_advanced()) as usize;
+        let start = start as usize;
+        let token = &self.src[start..end];
+        match token {
             "array" => TokenKind::ARRAY,
             "if" => TokenKind::IF,
             "then" => TokenKind::THEN,
