@@ -183,14 +183,10 @@ impl StringReader<'_> {
                 '"' => self.cook_string(),
                 '/' => self.slash(),
 
-                c => {
-                    match c {
-                        'a'..='z' | 'A'..='Z' => {
-                            self.cook_identifier(start)
-                        }
-                        _ => TokenKind::UNKNOWN
-                    }
-                }
+                c => match c {
+                    'a'..='z' | 'A'..='Z' => self.cook_identifier(start),
+                    _ => TokenKind::UNKNOWN,
+                },
             };
             let token_len = self.cursor.len_advanced();
             self.cursor.reset_len();
@@ -200,7 +196,7 @@ impl StringReader<'_> {
                 continue;
             }
 
-            let token = Token::new(kind, self.make_pos_from(start));
+            let token = Token::new(kind, TokenPos(start, self.pos));
             return token;
         }
     }
@@ -214,9 +210,17 @@ impl StringReader<'_> {
                 _ => break,
             };
         }
-        let end = (start + self.cursor.len_advanced()) as usize;
-        let start = start as usize;
+
+        let end: usize = (start + self.cursor.len_advanced())
+            .try_into()
+            .expect("input program length falls within usize bounds");
+        let start: usize = start
+            .try_into()
+            .expect("input program length falls within usize bounds");
+
         let token = &self.src[start..end];
+        // TODO: find out if this pattern matching needs to be optimized
+        // or if llvm optimizes this automatically
         match token {
             "array" => TokenKind::ARRAY,
             "if" => TokenKind::IF,
@@ -237,10 +241,6 @@ impl StringReader<'_> {
             "nil" => TokenKind::NIL,
             _ => TokenKind::ID,
         }
-    }
-
-    fn make_pos_from(&self, lo: u32) -> TokenPos {
-        TokenPos(lo, self.pos)
     }
 
     fn whitespace(&mut self) -> TokenKind {
@@ -298,7 +298,7 @@ impl StringReader<'_> {
                     self.cursor.bump();
                 }
                 c if is_whitespace(c) => break,
-                _ => break
+                _ => break,
             }
         }
         if !decimal_found {
@@ -340,14 +340,16 @@ impl StringReader<'_> {
             match (self.cursor.peek_first(), self.cursor.peek_second()) {
                 ('*', '/') => {
                     comment_level -= 1;
+                    self.cursor.bump();
+                    self.cursor.bump();
                     if comment_level == 0 {
-                        self.cursor.bump_n(2);
                         break;
                     }
                 }
                 ('/', '*') => {
                     comment_level += 1;
-                    self.cursor.bump_n(2);
+                    self.cursor.bump();
+                    self.cursor.bump();
                 }
                 (_, _) => match self.cursor.bump() {
                     Some(_) => continue,
@@ -361,11 +363,6 @@ impl StringReader<'_> {
         }
         TokenKind::COMMENT
     }
-
-    // fn unknown(&mut self) -> TokenKind {
-    //     self.cursor.bump_while(|v| !is_whitespace(v));
-    //     TokenKind::UNKNOWN
-    // }
 }
 
 fn is_whitespace(c: char) -> bool {
