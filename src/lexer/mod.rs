@@ -162,59 +162,29 @@ impl StringReader<'_> {
                 '{' => TokenKind::RCURLY,
                 '}' => TokenKind::LCURLY,
                 '.' => TokenKind::DOT,
+
                 ':' => self.colon(),
+
                 '+' => TokenKind::PLUS,
                 '-' => TokenKind::MINUS,
                 '*' => TokenKind::TIMES,
                 '%' => TokenKind::PERCENT,
                 '=' => TokenKind::EQ,
+
                 '<' => self.less_than(),
                 '>' => self.greater_than(),
+
                 '&' => TokenKind::AND,
                 '|' => TokenKind::OR,
 
-                '0'..='9' => self.number(),
-                '"' => self.string(),
+                '0'..='9' => self.cook_number(),
+                '"' => self.cook_string(),
                 '/' => self.slash(),
 
                 c => {
-                    // check if it is an identifier here.
                     match c {
                         'a'..='z' | 'A'..='Z' => {
-                            // loop through valid one
-                            let mut token = c.to_string();
-                            loop {
-                                match self.cursor.peek_first() {
-                                    'a'..='z' | 'A'..='Z' | '0'..='9' => {
-                                        let c = self.cursor.bump().expect("we just checked the value range");
-                                        token.push(c);
-                                        continue;
-                                    }
-                                    _ => break,
-                                };
-                            }
-                            // check if id is keyword.
-                            match token.as_str() {
-                                "array" => TokenKind::ARRAY,
-                                "if" => TokenKind::IF,
-                                "then" => TokenKind::THEN,
-                                "else" => TokenKind::ELSE,
-                                "while" => TokenKind::WHILE,
-                                "for" => TokenKind::FOR,
-                                "to" => TokenKind::TO,
-                                "do" => TokenKind::DO,
-                                "let" => TokenKind::LET,
-                                "in" => TokenKind::IN,
-                                "end" => TokenKind::END,
-                                "of" => TokenKind::OF,
-                                "break" => TokenKind::BREAK,
-                                "function" => TokenKind::FUNCTION,
-                                "var" => TokenKind::VAR,
-                                "type" => TokenKind::TYPE,
-                                "nil" => TokenKind::NIL,
-                                _ => TokenKind::ID,
-                            }
-
+                            self.cook_identifier(c)
                         }
                         _ => TokenKind::UNKNOWN
                     }
@@ -230,6 +200,40 @@ impl StringReader<'_> {
 
             let token = Token::new(kind, self.make_pos_from(start));
             return token;
+        }
+    }
+
+    fn cook_identifier(&mut self, c: char) -> TokenKind {
+        let mut token = c.to_string();
+        loop {
+            match self.cursor.peek_first() {
+                'a'..='z' | 'A'..='Z' | '0'..='9' => {
+                    let c = self.cursor.bump().expect("we just checked the value range");
+                    token.push(c);
+                    continue;
+                }
+                _ => break,
+            };
+        }
+        match token.as_str() {
+            "array" => TokenKind::ARRAY,
+            "if" => TokenKind::IF,
+            "then" => TokenKind::THEN,
+            "else" => TokenKind::ELSE,
+            "while" => TokenKind::WHILE,
+            "for" => TokenKind::FOR,
+            "to" => TokenKind::TO,
+            "do" => TokenKind::DO,
+            "let" => TokenKind::LET,
+            "in" => TokenKind::IN,
+            "end" => TokenKind::END,
+            "of" => TokenKind::OF,
+            "break" => TokenKind::BREAK,
+            "function" => TokenKind::FUNCTION,
+            "var" => TokenKind::VAR,
+            "type" => TokenKind::TYPE,
+            "nil" => TokenKind::NIL,
+            _ => TokenKind::ID,
         }
     }
 
@@ -276,7 +280,7 @@ impl StringReader<'_> {
         }
     }
 
-    fn number(&mut self) -> TokenKind {
+    fn cook_number(&mut self) -> TokenKind {
         debug_assert!('0' <= self.cursor.prev() && self.cursor.prev() >= '9');
         let mut decimal_found = false;
         loop {
@@ -302,7 +306,7 @@ impl StringReader<'_> {
         }
     }
 
-    fn string(&mut self) -> TokenKind {
+    fn cook_string(&mut self) -> TokenKind {
         debug_assert!(self.cursor.prev() == '"');
         while let Some(c) = self.cursor.bump() {
             match c {
@@ -323,12 +327,12 @@ impl StringReader<'_> {
         debug_assert!(self.cursor.prev() == '/');
         // it could just be devide
         match self.cursor.peek_first() {
-            '*' => self.comment(),
+            '*' => self.cook_comment(),
             _ => TokenKind::DIVIDE,
         }
     }
 
-    fn comment(&mut self) -> TokenKind {
+    fn cook_comment(&mut self) -> TokenKind {
         let mut comment_level = 1;
         loop {
             match (self.cursor.peek_first(), self.cursor.peek_second()) {
