@@ -1,6 +1,8 @@
+mod lexer;
 mod straight_line_prog;
 
 use straight_line_prog::*;
+
 
 fn main() {
     let prog = AStm::Compound(
