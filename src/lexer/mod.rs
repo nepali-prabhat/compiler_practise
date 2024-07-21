@@ -281,7 +281,7 @@ impl StringReader<'_> {
     }
 
     fn cook_number(&mut self) -> TokenKind {
-        debug_assert!('0' <= self.cursor.prev() && self.cursor.prev() >= '9');
+        debug_assert!('0' <= self.cursor.prev() && self.cursor.prev() <= '9');
         let mut decimal_found = false;
         loop {
             match self.cursor.peek_first() {
@@ -299,7 +299,7 @@ impl StringReader<'_> {
                 _ => break
             }
         }
-        if decimal_found {
+        if !decimal_found {
             TokenKind::INT
         } else {
             TokenKind::FLOAT
